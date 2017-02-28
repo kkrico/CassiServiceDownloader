@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using CassiServiceDownloader.Resources;
+using System;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CassiServiceDownloader
 {
@@ -10,6 +8,13 @@ namespace CassiServiceDownloader
     {
         static void Main(string[] args)
         {
+            if (args == null || !args.Any())
+                throw new ArgumentNullException(Mensagens.MN01);
+
+            var argumento = args.First();
+
+            var app = new CassiServiceDownloader(argumento);
+            app.Processar();
         }
     }
 }
