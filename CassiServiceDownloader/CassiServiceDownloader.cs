@@ -10,7 +10,7 @@ namespace CassiServiceDownloader
 {
     public class CassiServiceDownloader
     {
-        private static readonly string LineBreak = "\n";
+        private const string LineBreak = "\n";
         private readonly string _servicoUrl;
         private readonly string _pastaDestino;
 
