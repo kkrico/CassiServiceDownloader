@@ -1,6 +1,8 @@
 ﻿using CassiServiceDownloader.Resources;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Web.Services.Description;
@@ -13,13 +15,14 @@ namespace CassiServiceDownloader
         private const string LineBreak = "\n";
         private readonly string _servicoUrl;
         private readonly string _pastaDestino;
+        private readonly ICollection<string> _xsdsProcessados;
 
         public CassiServiceDownloader(string servicoUrl)
         {
             _servicoUrl = servicoUrl;
-            _pastaDestino = $"{Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)}\\{BuscarNomeServico(servicoUrl)}\\";
+            _pastaDestino = string.Format("{0}\\{1}\\", Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), BuscarNomeServico(servicoUrl));
+            _xsdsProcessados = new List<string>();
         }
-
 
         public void Processar()
         {
@@ -32,7 +35,7 @@ namespace CassiServiceDownloader
         private void ProcessarWsdl(string url)
         {
             if (string.IsNullOrWhiteSpace(url))
-                throw new ArgumentNullException(nameof(url));
+                throw new ArgumentNullException("url");
 
             Directory.CreateDirectory(_pastaDestino);
             SalvarWSDL(url);
@@ -40,16 +43,15 @@ namespace CassiServiceDownloader
 
         private void SalvarWSDL(string url)
         {
-            var bytes = BuscarArquivosNoServidor(url, "wsdl");
+            var bytes = BuscarArquivoNoServidor(url, "wsdl");
             bytes = ProcessarArquivoWSDL(bytes);
             SalvarEmDisco(bytes, "wsdl.wsdl");
         }
 
         private void SalvarEmDisco(byte[] bytes, string nomeDoArquivo)
         {
-            using (var filestream = new FileStream(_pastaDestino + nomeDoArquivo, FileMode.CreateNew, FileAccess.Write))
+            using (var filestream = new FileStream(_pastaDestino + nomeDoArquivo, FileMode.OpenOrCreate, FileAccess.Write))
             {
-
                 filestream.Write(bytes, 0, (int)bytes.Length);
             }
         }
@@ -69,9 +71,9 @@ namespace CassiServiceDownloader
 
 
                     var nomeXsd = url.Substring(url.LastIndexOf("xsd", StringComparison.CurrentCultureIgnoreCase)) + ".xsd";
-                    ProcessarXSD(nomeXsd);
-
                     include.GetType().GetProperty("SchemaLocation").SetValue(include, nomeXsd, BindingFlags.Default, null, null, null);
+
+                    ProcessarXSD(nomeXsd);
                 }
             }
 
@@ -83,7 +85,9 @@ namespace CassiServiceDownloader
 
         private void ProcessarXSD(string nomeXsd)
         {
-            var bytes = BuscarArquivosNoServidor(_servicoUrl, "xsd=" + nomeXsd.Remove(nomeXsd.LastIndexOf(".xsd", StringComparison.InvariantCultureIgnoreCase)));
+            var bytes = BuscarArquivoNoServidor(_servicoUrl, "xsd=" + nomeXsd.Remove(nomeXsd.LastIndexOf(".xsd", StringComparison.InvariantCultureIgnoreCase)));
+            var xsdsEncontradosNoArquivo = new List<string>();
+
             using (var ms = new MemoryStream(bytes))
             {
                 var xsd = XmlSchema.Read(ms, null);
@@ -93,16 +97,28 @@ namespace CassiServiceDownloader
                         .GetProperty("SchemaLocation")
                         .GetValue(item, BindingFlags.Default, null, null, null);
 
-                    var novoNomeDoNovoXsd = url.Substring(url.LastIndexOf("xsd", StringComparison.CurrentCultureIgnoreCase)) + ".xsd";
+                    var novoNomeXsd = url.Substring(url.LastIndexOf("xsd", StringComparison.CurrentCultureIgnoreCase)) + ".xsd";
+                    item.GetType().GetProperty("SchemaLocation").SetValue(item, novoNomeXsd, BindingFlags.Default, null, null, null);
 
-                    ProcessarXSD(nomeXsd);
-                    item.GetType().GetProperty("SchemaLocation").SetValue(item, novoNomeDoNovoXsd, BindingFlags.Default, null, null, null);
+                    xsdsEncontradosNoArquivo.Add(novoNomeXsd);
+
+                    if (_xsdsProcessados.All(x => x != novoNomeXsd))
+                    {
+                        _xsdsProcessados.Add(novoNomeXsd);
+                    }
+                    SalvarEmDisco(bytes, nomeXsd);
+                }
+
+                using (var msBuffer = new MemoryStream())
+                {
+                    xsd.Write(msBuffer);
+                    SalvarEmDisco(msBuffer.ToArray(), nomeXsd);
                 }
             }
-            SalvarEmDisco(bytes, nomeXsd);
+            xsdsEncontradosNoArquivo.Except(_xsdsProcessados).ToList().ForEach(ProcessarXSD);
         }
 
-        private byte[] BuscarArquivosNoServidor(string url, string queryParams)
+        private byte[] BuscarArquivoNoServidor(string url, string queryParams)
         {
             var uriBuilder = new UriBuilder(url)
             {
