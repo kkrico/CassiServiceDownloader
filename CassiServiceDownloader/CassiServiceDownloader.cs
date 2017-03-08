@@ -129,7 +129,6 @@ namespace CassiServiceDownloader
             webRequest.ContentType = "text/xml;charset=\"utf-8\"";
             webRequest.Method = "GET";
             webRequest.Accept = "text/xml";
-            webRequest.Proxy = new WebProxy("127.0.0.1", 8888);
 
             using (var response = webRequest.GetResponse())
             {
