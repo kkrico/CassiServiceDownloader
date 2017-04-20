@@ -55,6 +55,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="appveyor.yml" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Mensagens.resx">
