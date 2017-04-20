@@ -1,18 +1,29 @@
 ﻿using CassiServiceDownloader.Resources;
 using System;
 using System.Linq;
+using CassiServiceDownloader.Forms;
 
 namespace CassiServiceDownloader
 {
     class Program
     {
+        [STAThreadAttribute]
         static void Main(string[] args)
         {
             if (args == null || !args.Any())
-                throw new ArgumentNullException(Mensagens.MN01);
+                IniciarModoGrafico();
+            else
+                IniciarModoLinhaDeComando(args.First());
+        }
 
-            var argumento = args.First();
+        private static void IniciarModoGrafico()
+        {
+            var f = new MainForm();
+            f.ShowDialog();
+        }
 
+        private static void IniciarModoLinhaDeComando(string argumento)
+        {
             var app = new CassiServiceDownloader(argumento);
             app.Processar();
         }
